@@ -5,7 +5,7 @@ export default function Home() {
     <main className="flex flex-col justify-center items-center min-h-screen">
       <nav className="bg-white w-full border-b border-gray-300 h-14 shadow-md">
         <div className="flex items-center justify-between h-full px-4">
-          <h1 className="text-2xl font-bold text-red-500">
+          <h1 className="text-2xl font-bold text-red-500 cursor-pointer">
             AIG BOT
           </h1>
         </div>

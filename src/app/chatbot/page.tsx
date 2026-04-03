@@ -18,23 +18,32 @@ export default function Chatbot() {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [sessionId, setSessionId] = useState<string>('');
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
     useEffect(() => {
+        let currentSession = sessionStorage.getItem('chat_session_id');
+
+        if (!currentSession) {
+            currentSession = "session_" + Math.random().toString(36).substring(2, 15);
+            sessionStorage.setItem('chat_session_id', currentSession);
+        }
+
+        setSessionId(currentSession);
+    }, []);
+
+    useEffect(() => {
         scrollToBottom();
     }, [messages]);
     const handleSend = async () => {
-        // Prevent sending empty messages
-        if (!input.trim()) return;
+        if (!input.trim() || !sessionId) return;
 
-        // 1. Save user input and clear the box instantly for good UX
         const userText = input;
         setInput('');
 
-        // 2. Add the user's message to the UI
         setMessages(prev => [...prev, {
             id: Date.now().toString(),
             text: userText,
@@ -45,13 +54,12 @@ export default function Chatbot() {
         setIsLoading(true);
 
         try {
-            // 3. Make the API call to your FastAPI backend
             const response = await fetch('https://aig-be-s040.onrender.com/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ message: userText }),
+                body: JSON.stringify({ message: userText, session_id: sessionId }),
             });
 
             if (!response.ok) {
@@ -71,7 +79,6 @@ export default function Chatbot() {
 
         } catch (error) {
             console.error("Failed to send message:", error);
-            // Graceful error handling in the UI
             setMessages(prev => [...prev, {
                 id: (Date.now() + 1).toString(),
                 text: "I'm having trouble connecting to the server. Please ensure the backend is running.",
@@ -88,6 +95,10 @@ export default function Chatbot() {
             event.preventDefault();
             handleSend();
         }
+    }
+
+    const handleReportMistake = (bad_message: string) => {
+        console.log("to be implemented")
     }
 
     return (
@@ -116,6 +127,19 @@ export default function Chatbot() {
                                     message.text
                                 )}
                             </div>
+                            {message.sender === 'bot' && (
+                                <div className="mt-1 ml-1">
+                                    <button
+                                        onClick={() => handleReportMistake(message.text)}
+                                        className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1 cursor-pointer"
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                            <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                        Report Mistake
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     ))}
                     {isLoading && (
@@ -141,7 +165,7 @@ export default function Chatbot() {
                         value={input}
                     />
                     <button
-                        className="w-10 h-10 bg-blue-600 text-white rounded-lg flex items-center justify-center disabled:opacity-50"
+                        className="w-10 h-10 bg-blue-600 text-white rounded-lg flex items-center justify-center disabled:opacity-50 cursor-pointer"
                         disabled={false}
                         onClick={handleSend}
                     >
