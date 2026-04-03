@@ -12,6 +12,8 @@ export interface Message {
     sender: 'user' | 'bot';
     timestamp: Date;
 }
+const BACKEND_URL = "http://127.0.0.1:8000"
+//const BACKEND_URL = "https://aig-be-s040.onrender.com"
 export default function Chatbot() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState<string>('');
@@ -19,6 +21,50 @@ export default function Chatbot() {
     const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [sessionId, setSessionId] = useState<string>('');
+
+    const [editBotModalVisible, setEditBotModalVisible] = useState<boolean>(false);
+    const [knowledgeBase, setKnowledgeBase] = useState<string>("");
+    const [guidelines, setGuidelines] = useState<string>("")
+    const [mistakes, setMistakes] = useState<string>("")
+
+    const isManager = true;
+    const handleCloseModal = () => {
+        setEditBotModalVisible(false)
+    }
+
+    useEffect(() => {
+        if (editBotModalVisible) {
+            fetchBotData();
+        }
+    }, [editBotModalVisible])
+
+    const fetchBotData = async () => {
+        try {
+            const response: any = await fetch(`${BACKEND_URL}/get_bot_config`)
+            if (response.ok) {
+                const data = await response.json();
+                setKnowledgeBase(data["knowledge_base"])
+                setGuidelines(data["guidelines"]);
+                setMistakes(data["mistakes"])
+            }
+        } catch (error) {
+            console.error(`There is a problem getting bot data ${error}`)
+        }
+    }
+
+    const saveBotData = async () => {
+        try {
+            const response: any = await fetch(`${BACKEND_URL}/save_bot_config`)
+            if (response.ok) {
+                console.log("Bot config saved successful")
+            }
+        } catch (error) {
+            console.error(`There is a problem getting bot data ${error}`)
+        }
+    }
+
+
+
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -54,7 +100,7 @@ export default function Chatbot() {
         setIsLoading(true);
 
         try {
-            const response = await fetch('https://aig-be-s040.onrender.com/chat', {
+            const response = await fetch(`${BACKEND_URL}/chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -97,14 +143,94 @@ export default function Chatbot() {
         }
     }
 
-    const handleReportMistake = (bad_message: string) => {
+    const handleReportMistake = async (bad_message: string, message_id: string) => {
         console.log("to be implemented")
+        try {
+
+            const badMessageId = message_id;
+            let pastMessages = "";
+            for (const message of messages) {
+                if (message.id === badMessageId) {
+                    break;
+                } else {
+                    pastMessages += `${message.sender}: ${message.text}\n`;
+                }
+            }
+            const response = await fetch(`${BACKEND_URL}/report_message`, {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    "past_messages": pastMessages,
+                    "bad_message": bad_message,
+                })
+
+            })
+            if (!response.ok) {
+                throw new Error("report message failed!")
+            }
+
+        } catch (error) {
+            console.error("Failed to report mistake:", error);
+        }
     }
 
+    const handleSaveConfig = async () => {
+        const response = await fetch(`${BACKEND_URL}/save_bot_config`, {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                "knowledge_base": knowledgeBase,
+                "additional_guidelines": guidelines,
+            })
+        })
+        if (response.ok) {
+            setEditBotModalVisible(false)
+            console.log("Bot config saved successful")
+        } else {
+            console.error("Failed to save bot config");
+        }
+    }
     return (
-        <div className="w-full max-w-3xl max-h-2xl h-[calc(100vh-200px)] flex">
+        <div className="w-full max-w-3xl max-h-2xl h-[calc(80vh)] flex flex-col gap-3 items-center py-10">
+            {isManager &&
+                <button className="bg-red-500 p-1 w-20 rounded-xl cursor-pointer hover:bg-red-300 shadow-xl" onClick={() => setEditBotModalVisible(true)}>
+                    <text> Edit Bot </text>
+                </button>
+            }
+            {editBotModalVisible &&
+                <div className="fixed flex inset-0 bg-black/50  backdrop-blur-sm p-4 z-50 items-center justify-center min-w-md">
+                    <div className="flex flex-col gap-4 justify-center items-center border-b bg-gray-300 rounded-xl h-[calc(50vh)] w-full max-w-xl">
+                        <div className="w-full items-center justify-around flex flex-col gap-2">
+                            <h1 className="pt-2">Edit Bot's configuration</h1>
+                            <div className="w-full border-b"> </div>
+                        </div>
+                        <div className="w-full">
+                            <div className="flex flex-col w-full gap-2 items-center">
+                                <label htmlFor="knowledgeBase">Knowledge Base</label>
+                                <textarea id="knowledgeBase" value={knowledgeBase} onChange={(e) => setKnowledgeBase(e.target.value)} className="w-full h-full p-2 bg-gray-600 text-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            </div>
+                            <div className="flex flex-col w-full gap-2 items-center">
+                                <label htmlFor="guidelines">Additional guidelines</label>
+                                <textarea id="guidelines" value={guidelines} onChange={(e) => setGuidelines(e.target.value)} className="w-full h-full p-2 bg-gray-600 text-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            </div>
+                        </div>
+                        <div className="w-full flex flex-row gap-4 justify-center">
+                            <button className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-300 max-w-xs min-w-[80px]" onClick={handleSaveConfig}>
+                                Save
+                            </button>
+                            <button className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-300 max-w-xs min-w-[80px]" onClick={() => setEditBotModalVisible(false)}>
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+            <div className="flex flex-col bg-gray-300 flex-1 shadow-xl w-full min-h-0 overflow-hidden rounded-xl">
 
-            <div className="flex flex-col justify-center flex-1 shadow-xl">
                 <div className="bg-blue-600 rounded-t-xl text-white p-4 flex justify-between items-center">
                     <h3 className="m-0 text-base font-semibold">Chat Support</h3>
                 </div>
@@ -130,7 +256,7 @@ export default function Chatbot() {
                             {message.sender === 'bot' && (
                                 <div className="mt-1 ml-1">
                                     <button
-                                        onClick={() => handleReportMistake(message.text)}
+                                        onClick={() => handleReportMistake(message.text, message.id)}
                                         className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1 cursor-pointer"
                                     >
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">

@@ -10,7 +10,7 @@ export default function Home() {
           </h1>
         </div>
       </nav>
-      <main className="flex-1 flex justify-center items-center p-4 w-full">
+      <main className="flex-1 flex justify-center w-full">
         <Chatbot></Chatbot>
       </main>
     </main>
