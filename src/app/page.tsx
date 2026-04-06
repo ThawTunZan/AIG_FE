@@ -9,7 +9,7 @@ export default function Home() {
   const { logout, user } = useAuth();
 
   let loggedIn: boolean = user !== null;
-
+  // let loggedIn: boolean = true
   return (
     <main className="flex flex-col justify-center items-center min-h-screen">
       {!loggedIn ? (

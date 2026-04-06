@@ -1,5 +1,6 @@
 "use client"
 
+import { useAuth } from '@/context/AuthContext';
 import next from 'next'
 import React, { useRef } from 'react'
 import { useState, useEffect } from 'react'
@@ -12,8 +13,7 @@ export interface Message {
     sender: 'user' | 'bot';
     timestamp: Date;
 }
-const BACKEND_URL = "http://127.0.0.1:8000"
-//const BACKEND_URL = "https://aig-be-s040.onrender.com"
+const BACKEND_URL = process.env.BACKEND_URL
 export default function Chatbot() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState<string>('');
@@ -26,11 +26,10 @@ export default function Chatbot() {
     const [knowledgeBase, setKnowledgeBase] = useState<string>("");
     const [guidelines, setGuidelines] = useState<string>("")
     const [mistakes, setMistakes] = useState<string>("")
+    const [saveError, setSaveError] = useState<string>("")
 
-    const isManager = true;
-    const handleCloseModal = () => {
-        setEditBotModalVisible(false)
-    }
+    const { user } = useAuth()
+    const isManager = true
 
     useEffect(() => {
         if (editBotModalVisible) {
@@ -40,7 +39,11 @@ export default function Chatbot() {
 
     const fetchBotData = async () => {
         try {
-            const response: any = await fetch(`${BACKEND_URL}/get_bot_config`)
+            const userId = user?.username;
+            const userRole = user?.role;
+            const response: any = await fetch(`${BACKEND_URL}/get_bot_config?userId=${userId}&role=${userRole}`, {
+                method: "GET"
+            })
             if (response.ok) {
                 const data = await response.json();
                 setKnowledgeBase(data["knowledge_base"])
@@ -53,21 +56,32 @@ export default function Chatbot() {
     }
 
     const handleSaveConfig = async () => {
-        const response = await fetch(`${BACKEND_URL}/save_bot_config`, {
-            method: "POST",
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                "knowledge_base": knowledgeBase,
-                "additional_guidelines": guidelines,
+        setSaveError(""); // Clear any previous errors
+        try {
+            const userId = user?.username;
+            const userRole = user?.role;
+            const response = await fetch(`${BACKEND_URL}/save_bot_config?userId=${userId}&role=${userRole}`, {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    "knowledge_base": knowledgeBase,
+                    "additional_guidelines": guidelines,
+                })
             })
-        })
-        if (response.ok) {
-            setEditBotModalVisible(false)
-            console.log("Bot config saved successful")
-        } else {
-            console.error("Failed to save bot config");
+            if (response.ok) {
+                setEditBotModalVisible(false)
+                console.log("Bot config saved successful")
+            } else if (response.status === 401) {
+                setSaveError("Unauthorized: You do not have permission to edit the bot.");
+            } else {
+                setSaveError("Failed to save bot config. Please try again.");
+                console.error("Failed to save bot config");
+            }
+        } catch (error) {
+            setSaveError("Network error. Please check your connection.");
+            console.error(error);
         }
     }
 
@@ -196,6 +210,11 @@ export default function Chatbot() {
                             <div className="w-full border-b"> </div>
                         </div>
                         <div className="w-full">
+                            {saveError && (
+                                <div className="mb-4 p-2 bg-red-100 border border-red-400 text-red-700 text-sm rounded text-center">
+                                    {saveError}
+                                </div>
+                            )}
                             <div className="flex flex-col w-full gap-2 items-center">
                                 <label htmlFor="knowledgeBase">Knowledge Base</label>
                                 <textarea id="knowledgeBase" value={knowledgeBase} onChange={(e) => setKnowledgeBase(e.target.value)} className="w-full h-full p-2 bg-gray-600 text-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
