@@ -13,7 +13,7 @@ export interface Message {
     sender: 'user' | 'bot';
     timestamp: Date;
 }
-const BACKEND_URL = process.env.BACKEND_URL
+
 export default function Chatbot() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState<string>('');
@@ -29,7 +29,9 @@ export default function Chatbot() {
     const [saveError, setSaveError] = useState<string>("")
 
     const { user } = useAuth()
-    const isManager = true
+    const isManager = user?.role === "manager"
+
+    const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL
 
     useEffect(() => {
         if (editBotModalVisible) {

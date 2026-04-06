@@ -15,11 +15,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const isManager = user?.username === "manager"
 
-    const login = (userData: string) => {
+    const login = (userData: User) => {
         setLoading(true)
         // Simulate an API call
         setTimeout(() => {
-            setUser({ username: userData, role: userData === "manager" ? "manager" : "user" })
+            setUser({ username: userData.username, role: userData.role, })
             setLoading(false)
         }, 1000)
     }

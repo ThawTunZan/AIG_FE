@@ -8,6 +8,8 @@ export function AuthPage() {
     const [password, setPassword] = useState<string>("")
     const { login } = useAuth()
 
+    const role = username === "manager" ? "manager" : "user"
+
     return (
         <div className="w-full max-w-3xl h-[calc(100vh-10rem)] flex flex-col py-10 items-center">
             <h1 className="text-red-800 text-2xl font-bold mb-4">Login</h1>
@@ -26,7 +28,7 @@ export function AuthPage() {
                         </div>
                     </div>
                     <div className="flex justify-between w-full">
-                        <button className="bg-yellow-300 hover:bg-yellow-400 text-black font-bold py-2 px-4 rounded-xl cursor-pointer" onClick={() => login({ username, password })}>
+                        <button className="bg-yellow-300 hover:bg-yellow-400 text-black font-bold py-2 px-4 rounded-xl cursor-pointer" onClick={() => login({ username, role })}>
                             Login
                         </button>
                         <button className="bg-yellow-300 hover:bg-yellow-400 text-black font-bold py-2 px-4 rounded-xl cursor-pointer" onClick={() => console.log("Register clicked")}>
