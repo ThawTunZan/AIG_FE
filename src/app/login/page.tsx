@@ -3,7 +3,7 @@
 import { useAuth } from "@/context/AuthContext"
 import { useState } from "react"
 
-export function AuthPage() {
+export default function AuthPage() {
     const [username, setUsername] = useState<string>("")
     const [password, setPassword] = useState<string>("")
     const { login } = useAuth()

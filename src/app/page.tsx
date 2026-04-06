@@ -2,7 +2,7 @@
 
 import Chatbot from "@/app/chatbot/page";
 import { useAuth } from "@/context/AuthContext";
-import { AuthPage } from "./login/page";
+import AuthPage from "./login/page";
 import { useState } from "react";
 
 export default function Home() {
