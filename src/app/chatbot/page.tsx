@@ -52,19 +52,24 @@ export default function Chatbot() {
         }
     }
 
-    const saveBotData = async () => {
-        try {
-            const response: any = await fetch(`${BACKEND_URL}/save_bot_config`)
-            if (response.ok) {
-                console.log("Bot config saved successful")
-            }
-        } catch (error) {
-            console.error(`There is a problem getting bot data ${error}`)
+    const handleSaveConfig = async () => {
+        const response = await fetch(`${BACKEND_URL}/save_bot_config`, {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                "knowledge_base": knowledgeBase,
+                "additional_guidelines": guidelines,
+            })
+        })
+        if (response.ok) {
+            setEditBotModalVisible(false)
+            console.log("Bot config saved successful")
+        } else {
+            console.error("Failed to save bot config");
         }
     }
-
-
-
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -176,24 +181,6 @@ export default function Chatbot() {
         }
     }
 
-    const handleSaveConfig = async () => {
-        const response = await fetch(`${BACKEND_URL}/save_bot_config`, {
-            method: "POST",
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                "knowledge_base": knowledgeBase,
-                "additional_guidelines": guidelines,
-            })
-        })
-        if (response.ok) {
-            setEditBotModalVisible(false)
-            console.log("Bot config saved successful")
-        } else {
-            console.error("Failed to save bot config");
-        }
-    }
     return (
         <div className="w-full max-w-3xl max-h-2xl h-[calc(80vh)] flex flex-col gap-3 items-center py-10">
             {isManager &&
