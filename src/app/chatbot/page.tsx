@@ -28,6 +28,13 @@ export default function Chatbot() {
     const [mistakes, setMistakes] = useState<string>("")
     const [saveError, setSaveError] = useState<string>("")
 
+    // --- META AGENT STATES ---
+    const [metaMessages, setMetaMessages] = useState<Message[]>([]);
+    const [metaInput, setMetaInput] = useState<string>('');
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [isMetaLoading, setIsMetaLoading] = useState<boolean>(false);
+    const [urlInput, setUrlInput] = useState("");
+
     const { user } = useAuth()
     const isManager = user?.role === "manager"
 
@@ -38,6 +45,60 @@ export default function Chatbot() {
             fetchBotData();
         }
     }, [editBotModalVisible])
+
+    const handleMetaSend = async () => {
+        if (!metaInput.trim() && !selectedFile) return;
+
+        const userText = metaInput;
+        setMetaInput('');
+
+        // 1. Add manager's message to the mini-chat
+        setMetaMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            text: selectedFile ? `[Uploaded: ${selectedFile.name}] ${userText}` : userText,
+            sender: 'user',
+            timestamp: new Date()
+        }]);
+
+        setIsMetaLoading(true);
+
+        try {
+            // 2. Prepare the File and Text for the backend
+            const formData = new FormData();
+            formData.append("message", userText);
+            if (selectedFile) {
+                formData.append("file", selectedFile);
+            }
+
+            // 3. Hit the new /meta_chat endpoint
+            const response = await fetch(`${BACKEND_URL}/meta_chat`, {
+                method: 'POST',
+                body: formData, // Notice we don't use headers: {'Content-Type': 'application/json'} for FormData
+            });
+
+            if (!response.ok) throw new Error('Meta-Agent network error');
+
+            const data = await response.json();
+
+            // 4. Add the Meta-Agent's reply to the mini-chat
+            setMetaMessages(prev => [...prev, {
+                id: (Date.now() + 1).toString(),
+                text: data.reply,
+                sender: 'bot',
+                timestamp: new Date()
+            }]);
+
+            // 5. MAGIC TRICK: Instantly refresh the textareas to show the new rules!
+            fetchBotData();
+            setSelectedFile(null); // clear the file input
+
+        } catch (error) {
+            console.error(error);
+            setSaveError("Failed to chat with Meta-Agent.");
+        } finally {
+            setIsMetaLoading(false);
+        }
+    }
 
     const fetchBotData = async () => {
         try {
@@ -197,6 +258,26 @@ export default function Chatbot() {
         }
     }
 
+    const handleUrlScrape = async () => {
+        try {
+            const response = await fetch(`${BACKEND_URL}/update_knowledge_base?userId=${user?.username}&role=${user?.role}`, {
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: urlInput })
+            });
+            const data = await response.json();
+            if (data.status === "Success") {
+                alert("Website scraped successfully!");
+                fetchBotData(); // Refresh the textareas to show the scraped text!
+                setUrlInput("");
+            } else {
+                alert(data.message);
+            }
+        } catch (error) {
+            console.error("Scraping failed", error);
+        }
+    };
+
     return (
         <div className="w-full max-w-3xl max-h-2xl h-[calc(80vh)] flex flex-col gap-3 items-center py-10">
             {isManager &&
@@ -204,39 +285,123 @@ export default function Chatbot() {
                     <text> Edit Bot </text>
                 </button>
             }
-            {editBotModalVisible &&
-                <div className="fixed flex inset-0 bg-black/50  backdrop-blur-sm p-4 z-50 items-center justify-center min-w-md">
-                    <div className="flex flex-col gap-4 justify-center items-center border-b bg-gray-300 rounded-xl h-[calc(50vh)] w-full max-w-xl">
-                        <div className="w-full items-center justify-around flex flex-col gap-2">
-                            <h1 className="pt-2">Edit Bot's configuration</h1>
-                            <div className="w-full border-b"> </div>
+            {editBotModalVisible && (
+                <div className="fixed inset-0 bg-black/50 p-4 z-50 flex items-center justify-center">
+                    <div className="flex flex-col bg-gray-100 rounded-xl w-full max-w-2xl max-h-[90vh] shadow-2xl overflow-hidden">
+
+                        <div className="bg-gray-200 p-4 border-b border-gray-300 flex justify-between items-center">
+                            <h2 className="font-bold text-lg text-black">Manager Dashboard</h2>
+                            <button onClick={() => setEditBotModalVisible(false)} className="text-gray-500 hover:text-gray-800 font-bold text-xl cursor-pointer">&times;</button>
                         </div>
-                        <div className="w-full">
-                            {saveError && (
-                                <div className="mb-4 p-2 bg-red-100 border border-red-400 text-red-700 text-sm rounded text-center">
-                                    {saveError}
+
+                        <div className="p-6 overflow-y-auto flex flex-col gap-8">
+                            <div className="w-full flex flex-col gap-3">
+                                <h3 className="font-semibold text-blue-600 border-b pb-1">Meta-Agent</h3>
+
+                                <div className="bg-white border border-gray-300 rounded-lg h-40 overflow-y-auto p-3 flex flex-col gap-2 shadow-inner">
+                                    {metaMessages.length === 0 ? (
+                                        <p className="text-sm text-gray-500 text-center italic mt-4">Upload a doc or tell the Meta-Agent what kind of bot to build...</p>
+                                    ) : (
+                                        metaMessages.map((msg) => (
+                                            <div key={msg.id} className={`p-2 rounded text-sm w-fit max-w-[85%] ${msg.sender === 'user' ? 'bg-blue-100 text-blue-900 self-end' : 'bg-green-100 text-green-900 self-start'}`}>
+                                                <span className="font-bold text-xs block mb-1">{msg.sender === 'user' ? 'You' : 'Meta-Agent'}</span>
+                                                {msg.text}
+                                            </div>
+                                        ))
+                                    )}
+                                    {isMetaLoading && <p className="text-xs text-gray-500 animate-pulse">Meta-Agent is thinking...</p>}
                                 </div>
-                            )}
-                            <div className="flex flex-col w-full gap-2 items-center">
-                                <label htmlFor="knowledgeBase">Knowledge Base</label>
-                                <textarea id="knowledgeBase" value={knowledgeBase} onChange={(e) => setKnowledgeBase(e.target.value)} className="w-full h-full p-2 bg-gray-600 text-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+
+                                <div className="flex flex-col gap-2">
+                                    <input
+                                        type="file"
+                                        accept=".txt"
+                                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                                        className="text-sm text-gray-700 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                                    />
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={metaInput}
+                                            onChange={(e) => setMetaInput(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleMetaSend()}
+                                            placeholder="E.g., Make the bot more polite..."
+                                            className="flex-1 border border-gray-300 p-2 text-sm rounded bg-white text-black outline-none "
+                                        />
+                                        <button
+                                            onClick={handleMetaSend}
+                                            disabled={isMetaLoading || (!metaInput.trim() && !selectedFile)}
+                                            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 text-sm cursor-pointer font-medium"
+                                        >
+                                            Send
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex flex-col w-full gap-2 items-center">
-                                <label htmlFor="guidelines">Additional guidelines</label>
-                                <textarea id="guidelines" value={guidelines} onChange={(e) => setGuidelines(e.target.value)} className="w-full h-full p-2 bg-gray-600 text-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+
+                            <div className="w-full flex flex-col gap-3">
+                                <h3 className="font-semibold text-blue-600 border-b pb-1">2. Manual Configuration</h3>
+                                {saveError && (
+                                    <div className="p-2 bg-red-100 border border-red-400 text-red-700 text-sm rounded text-center">
+                                        {saveError}
+                                    </div>
+                                )}
+                                <div className="flex flex-col w-full gap-2 items-start bg-blue-50 p-3 rounded border border-blue-200 mb-2">
+                                    <label className="text-sm font-semibold text-blue-800">Import from URL</label>
+                                    <div className="flex gap-2 w-full">
+                                        <input
+                                            type="url"
+                                            value={urlInput}
+                                            onChange={(e) => setUrlInput(e.target.value)}
+                                            placeholder="https://help.atome.ph/..."
+                                            className="flex-1 p-2 border border-gray-300 rounded text-sm text-black"
+                                        />
+                                        <button onClick={handleUrlScrape} className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm cursor-pointer">
+                                            Scrape
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-sm font-semibold text-gray-700">Knowledge Base</label>
+                                    <textarea value={knowledgeBase} onChange={(e) => setKnowledgeBase(e.target.value)} rows={3} className="w-full p-2 bg-white text-black border border-gray-300 rounded text-sm"></textarea>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-sm font-semibold text-gray-700">Additional Guidelines</label>
+                                    <textarea value={guidelines} onChange={(e) => setGuidelines(e.target.value)} rows={3} className="w-full p-2 bg-white text-black border border-gray-300 rounded text-sm"></textarea>
+                                </div>
                             </div>
+
+                            {/* 
+                            <div className="w-full flex flex-col gap-3">
+                                <h3 className="font-semibold text-red-600 border-b pb-1">3. Archived Mistakes & Auto-Fixes</h3>
+                                <div className="w-full flex flex-col gap-2 max-h-40 overflow-y-auto pr-1">
+                                    {!mistakes || mistakes.length === 0 ? (
+                                        <p className="text-sm text-gray-500 italic text-center">No mistakes reported yet.</p>
+                                    ) : (
+                                        mistakes.map((m: any, idx: number) => (
+                                            <div key={idx} className="bg-red-50 p-3 rounded border-l-4 border-red-500 text-sm flex flex-col gap-1">
+                                                <div className="text-gray-800"><span className="text-red-700 font-bold text-xs uppercase">Customer Flagged:</span> "{m.bad_message}"</div>
+                                                <div className="text-gray-800"><span className="text-green-700 font-bold text-xs uppercase">Bot Learned:</span> {m.fix}</div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div> */}
+
                         </div>
-                        <div className="w-full flex flex-row gap-4 justify-center">
-                            <button className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-300 max-w-xs min-w-[80px]" onClick={handleSaveConfig}>
-                                Save
-                            </button>
-                            <button className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-300 max-w-xs min-w-[80px]" onClick={() => setEditBotModalVisible(false)}>
+
+                        <div className="bg-gray-200 p-4 border-t border-gray-300 flex justify-end gap-3">
+                            <button className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-50 cursor-pointer font-medium text-sm" onClick={() => setEditBotModalVisible(false)}>
                                 Cancel
                             </button>
+                            <button className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 cursor-pointer font-medium text-sm" onClick={handleSaveConfig}>
+                                Save Manual Edits
+                            </button>
                         </div>
+
                     </div>
                 </div>
-            }
+            )}
             <div className="flex flex-col bg-gray-300 flex-1 shadow-xl w-full min-h-0 overflow-hidden rounded-xl">
 
                 <div className="bg-blue-600 rounded-t-xl text-white p-4 flex justify-between items-center">
