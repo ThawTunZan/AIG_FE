@@ -119,7 +119,7 @@ export default function Chatbot() {
     }
 
     const handleSaveConfig = async () => {
-        setSaveError(""); // Clear any previous errors
+        setSaveError("");
         try {
             const userId = user?.username;
             const userRole = user?.role;

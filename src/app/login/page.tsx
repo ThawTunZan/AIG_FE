@@ -7,7 +7,7 @@ export default function AuthPage() {
     const [username, setUsername] = useState<string>("")
     const [password, setPassword] = useState<string>("")
     const [currPage, setCurrPage] = useState<"login" | "register">("login")
-    const { login, signup } = useAuth()
+    const { login, signup, loading } = useAuth()
 
     let role = username === "manager" ? "manager" : "user"
 
@@ -35,7 +35,7 @@ export default function AuthPage() {
                                 </div>
                             </div>
                             <div className="flex justify-between w-full">
-                                <button className="bg-yellow-300 hover:bg-yellow-400 text-black font-bold py-2 px-4 rounded-xl cursor-pointer" onClick={() => login(username, password, role)}>
+                                <button className="bg-yellow-300 hover:bg-yellow-400 text-black font-bold py-2 px-4 rounded-xl cursor-pointer" onClick={() => login(username, password, role)} disabled={loading}>
                                     Login
                                 </button>
                                 <button className="bg-yellow-300 hover:bg-yellow-400 text-black font-bold py-2 px-4 rounded-xl cursor-pointer" onClick={() => setCurrPage("register")}>
