@@ -19,46 +19,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const login = async (username: string, password: string, role: "manager" | "user") => {
         setLoading(true);
-        const res = await fetch(`${BACKEND_URL}/login`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                username,
-                password,
-                role,
+        try {
+            const res = await fetch(`${BACKEND_URL}/login`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    username,
+                    password,
+                    role,
+                })
             })
-        })
-        const data = await res.json()
-        if (res.ok) {
-            setUser(data)
-        } else {
-            alert(data.detail || "Login failed")
+            const data = await res.json()
+            if (res.ok) {
+                setUser(data)
+                return { success: true, data }
+            } else {
+                return { success: false, error: data.detail || "Login failed. Please check your credentials." }
+            }
+        } catch (error) {
+            console.error("Login Error:", error)
+            return { success: false, error: "Network error occurred during login." }
+        } finally {
+            setLoading(false)
         }
-        setLoading(false)
-        return data
     }
 
     const logout = () => {
         setUser(null)
     }
 
-    const signup = async (userData: User) => {
+    const signup = async (username: string, password: string, role: "manager" | "user") => {
         setLoading(true);
-        const res = await fetch(`${BACKEND_URL}/signup`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(userData)
-        })
-        const data = await res.json()
-        if (res.ok) {
-            setUser(data)
+        try {
+            const res = await fetch(`${BACKEND_URL}/signup`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ username, password, role })
+            })
+            const data = await res.json()
+            if (res.ok) {
+                setUser(data)
+                return { success: true, data }
+            } else {
+                return { success: false, error: data.detail || "Registration failed. Username may already exist." }
+            }
+        } catch (error) {
+            console.error("Signup Error:", error)
+            return { success: false, error: "Network error occurred during registration." }
+        } finally {
+            setLoading(false)
         }
-        setLoading(false)
-        return data
     }
 
     return (
@@ -66,7 +80,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             {children}
         </AuthContext.Provider>
     )
-
 }
 
 export const useAuth = () => useContext(AuthContext)
